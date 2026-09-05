@@ -155,6 +155,16 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         content={"detail": error_details}
     )
 
+@app.exception_handler(Exception)
+async def generic_exception_handler(request: Request, exc: Exception):
+    import traceback
+    tb = traceback.format_exc()
+    logger.error(f"Unhandled error on {request.url.path}: {exc}\n{tb}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error", "error": str(exc), "traceback": tb}
+    )
+
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
@@ -195,6 +205,7 @@ def health_check():
         "service": "alert-buster",
         "tagline": "Turn alert noise into actionable incidents."
     }
+
 
 # Register API Routers
 app.include_router(alerts_router, prefix=settings.API_V1_STR)
