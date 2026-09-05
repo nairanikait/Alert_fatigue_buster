@@ -1,0 +1,13 @@
+groups:
+  - name: blackbox_http_alerts
+    rules:
+      - alert: ProjectDown
+        expr: probe_success == 0
+        for: 10s
+        labels:
+          severity: critical
+          service: vendit-app
+          environment: production
+        annotations:
+          summary: "Project target endpoint is unreachable: {{ $labels.instance }}"
+          description: "Blackbox prober reported probe_success == 0 for {{ $labels.instance }} for more than 10 seconds. The target HTTP service returned non-200 or timed out."

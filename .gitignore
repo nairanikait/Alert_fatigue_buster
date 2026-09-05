@@ -1,0 +1,41 @@
+# Virtual Environment
+backend/venv/
+venv/
+ENV/
+env/
+
+# Node modules & build artifacts
+frontend/node_modules/
+frontend/dist/
+simulator-mobile/node_modules/
+simulator-mobile/.expo/
+node_modules/
+dist/
+.expo/
+*.tsbuildinfo
+
+# Python cache & bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+backend/alerts.db
+
+# Environment variables (STRICTLY IGNORED - NO ENV FILES IN GIT)
+.env
+.env*
+.env.*
+*.env
+**/.env
+**/.env*
+**/.env.*
+
+# OS / Editor files
+.DS_Store
+.vscode/
+.idea/

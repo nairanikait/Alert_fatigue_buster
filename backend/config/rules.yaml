@@ -1,0 +1,99 @@
+# Alert Fatigue Buster - Declarative Processing Rules
+
+cost_savings:
+  engineer_hourly_rate: 80.0
+  interruption_recovery_minutes: 3.0
+  avoided_interruption_cost: 4.0
+  avoided_downstream_triage_cost: 15.0
+
+rate_limiting:
+  requests_per_minute: 150
+  window_seconds: 60
+
+deduplication:
+  enabled: true
+  window_seconds: 30
+
+batching:
+  enabled: true
+  window_seconds: 10
+  max_alerts: 50
+  flush_interval_seconds: 30
+
+cooldown:
+  critical_seconds: 60
+  high_seconds: 300
+  medium_seconds: 900
+  low_seconds: 1800
+  flaky_seconds: 1800
+
+severity:
+  critical_threshold: 80
+  high_threshold: 60
+  medium_threshold: 40
+
+correlation:
+  enabled: true
+  window_seconds: 15
+  max_dependency_depth: 5
+
+flaky_detection:
+  enabled: true
+  threshold: 4          # Number of state toggles or rapid events to qualify as flaky
+  window_seconds: 120   # Window to check for flapping
+
+routing:
+  critical: pagerduty
+  high: pagerduty, email
+  medium: email, slack
+  low: email
+  digest: email
+
+services:
+  database:
+    criticality: 100
+    display_name: "Core Database Cluster"
+  payment-service:
+    criticality: 90
+    display_name: "Payment Gateway Service"
+  order-service:
+    criticality: 85
+    display_name: "Order Processing Service"
+  authentication-service:
+    criticality: 90
+    display_name: "Auth & Identity Service"
+  api-gateway:
+    criticality: 80
+    display_name: "Edge API Gateway"
+  checkout:
+    criticality: 75
+    display_name: "Checkout Web Frontend"
+  redis:
+    criticality: 70
+    display_name: "Redis Cache Cluster"
+  message-queue:
+    criticality: 75
+    display_name: "Kafka Message Broker"
+  frontend:
+    criticality: 60
+    display_name: "Customer Web Portal"
+
+dependencies:
+  - parent: database
+    child: payment-service
+  - parent: database
+    child: order-service
+  - parent: database
+    child: authentication-service
+  - parent: redis
+    child: authentication-service
+  - parent: payment-service
+    child: checkout
+  - parent: order-service
+    child: api-gateway
+  - parent: authentication-service
+    child: api-gateway
+  - parent: api-gateway
+    child: frontend
+  - parent: message-queue
+    child: order-service
