@@ -53,8 +53,25 @@ export interface IncidentItem {
   resolved_at: string | null;
   duration_seconds: number;
   evidence: any[];
+  ai_analysis?: AIIncidentAnalysis;
   estimated_cost_loss?: number;
   cost_burn_rate_per_minute?: number;
+}
+
+export interface AIIncidentAnalysis {
+  summary: string;
+  root_cause_explanation: string;
+  correlation_explanation: string;
+  suppression_explanation: string;
+  immediate_mitigation: string[];
+  investigation_steps: string[];
+  long_term_prevention: string[];
+  potential_impact: string;
+  confidence: number;
+  risk_level: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | string;
+  technical_reasoning: string[];
+  analyzed_at?: string;
+  provider?: string;
 }
 
 export interface NotificationItem {

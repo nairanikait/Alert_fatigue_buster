@@ -6,16 +6,30 @@ interface QuarantineReviewTableProps {
   alerts: any[];
   loading: boolean;
   onActionComplete: () => void;
+  filterCritical?: boolean;
+  onFilterCriticalChange?: (val: boolean) => void;
+  highlighted?: boolean;
 }
 
 export const QuarantineReviewTable: React.FC<QuarantineReviewTableProps> = ({
   alerts,
   loading,
   onActionComplete,
+  filterCritical: propsFilterCritical,
+  onFilterCriticalChange,
+  highlighted = false,
 }) => {
-  const [filterCritical, setFilterCritical] = useState<boolean>(false);
+  const [internalFilterCritical, setInternalFilterCritical] = useState<boolean>(false);
   const [selectedPayload, setSelectedPayload] = useState<any | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+
+  const filterCritical = propsFilterCritical !== undefined ? propsFilterCritical : internalFilterCritical;
+
+  const toggleFilter = () => {
+    const next = !filterCritical;
+    setInternalFilterCritical(next);
+    onFilterCriticalChange?.(next);
+  };
 
   const displayedAlerts = filterCritical
     ? alerts.filter((a) => String(a.severity).toLowerCase() === "critical")
@@ -48,7 +62,12 @@ export const QuarantineReviewTable: React.FC<QuarantineReviewTableProps> = ({
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-lg shadow-xs overflow-hidden">
+    <div
+      id="quarantine-review-table"
+      className={`bg-white border rounded-lg shadow-xs overflow-hidden transition-all duration-500 ${
+        highlighted ? "border-rose-400 ring-4 ring-rose-200/80 shadow-md" : "border-slate-200"
+      }`}
+    >
       {/* Header */}
       <div className="p-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 bg-slate-50/70">
         <div className="flex items-center space-x-2">
@@ -60,10 +79,10 @@ export const QuarantineReviewTable: React.FC<QuarantineReviewTableProps> = ({
 
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => setFilterCritical(!filterCritical)}
+            onClick={toggleFilter}
             className={`px-2.5 py-1 rounded text-xs font-semibold flex items-center space-x-1.5 transition-colors ${
               filterCritical
-                ? "bg-rose-100 text-rose-800 border border-rose-200"
+                ? "bg-rose-100 text-rose-800 border border-rose-300 font-bold"
                 : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
             }`}
           >

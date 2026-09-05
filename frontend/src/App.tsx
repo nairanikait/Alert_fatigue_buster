@@ -347,6 +347,7 @@ export const App: React.FC = () => {
                 metrics={metrics}
                 alerts={alerts}
                 incidents={incidents}
+                notifications={notifications}
               />
             </div>
           )}

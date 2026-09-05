@@ -1,4 +1,4 @@
-import { AlertItem, IncidentItem, NotificationItem, MetricsData, TopologyData } from "../types";
+import { AlertItem, IncidentItem, NotificationItem, MetricsData, TopologyData, AIIncidentAnalysis } from "../types";
 
 const API_BASE = "/api";
 
@@ -37,6 +37,54 @@ export async function fetchAlertDetail(alertId: number): Promise<AlertItem> {
   return res.json();
 }
 
+export interface AutoSolvePipelineStage {
+  id: string;
+  name: string;
+  description: string;
+  status: string;
+  details?: string;
+}
+
+export interface AutoSolveResult {
+  status: string;
+  message: string;
+  solved_count: number;
+  total_occurrences: number;
+  services_affected: string[];
+  focus_hours_saved: number;
+  incidents_resolved: number;
+  pipeline_stages: AutoSolvePipelineStage[];
+  solved_alerts: {
+    id: number;
+    alert_name: string;
+    service: string;
+    suppression_category: string;
+    occurrence_count: number;
+    duration_seconds: number;
+  }[];
+}
+
+export async function autoSolveSuppressedAlerts(): Promise<AutoSolveResult> {
+  const res = await fetch(`${API_BASE}/alerts/autosolve-suppressed`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to auto-solve suppressed queries");
+  }
+  return res.json();
+}
+
+export async function resetSuppressedAlerts(): Promise<any> {
+  const res = await fetch(`${API_BASE}/alerts/seed-suppressed?force=true`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error("Failed to reset alerts to original status");
+  return res.json();
+}
+
+
 export async function fetchIncidents(status?: string): Promise<IncidentItem[]> {
   const query = status ? `?status=${status}` : "";
   const res = await fetch(`${API_BASE}/incidents${query}`);
@@ -47,6 +95,22 @@ export async function fetchIncidents(status?: string): Promise<IncidentItem[]> {
 export async function fetchIncidentDetail(incidentId: string): Promise<{ incident: IncidentItem; alerts: AlertItem[] }> {
   const res = await fetch(`${API_BASE}/incidents/${incidentId}`);
   if (!res.ok) throw new Error(`Failed to fetch incident ${incidentId}`);
+  return res.json();
+}
+
+export async function generateIncidentAIAnalysis(
+  incidentId: string,
+  regenerate: boolean = false
+): Promise<{ incident_id: string; cached: boolean; analysis: AIIncidentAnalysis }> {
+  const res = await fetch(`${API_BASE}/incidents/${incidentId}/ai-analysis`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ regenerate }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Failed to generate AI analysis for incident ${incidentId}`);
+  }
   return res.json();
 }
 
@@ -355,6 +419,14 @@ export async function runSecurityTestScenario(scenario: string): Promise<any> {
     method: "POST",
   });
   if (!res.ok) throw new Error(`Failed to execute security test '${scenario}'`);
+  return res.json();
+}
+
+export async function seedSecurityThreats(force: boolean = false): Promise<any> {
+  const res = await fetch(`${API_BASE}/security/seed-threats?force=${force}`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error("Failed to seed security threats");
   return res.json();
 }
 

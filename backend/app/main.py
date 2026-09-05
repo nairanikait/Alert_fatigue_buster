@@ -13,6 +13,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from app.services.security import security_audit_logger
 
 from app.core.config import settings, load_rules
@@ -83,11 +84,26 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing database schemas...")
     Base.metadata.create_all(bind=engine)
     
+    # Safe auto-migration for SQLite to ensure all model columns exist
+    try:
+        with engine.connect() as conn:
+            res = conn.execute(text("PRAGMA table_info(incidents);")).fetchall()
+            cols = [r[1] for r in res]
+            if "ai_analysis" not in cols:
+                conn.execute(text("ALTER TABLE incidents ADD COLUMN ai_analysis JSON;"))
+                conn.commit()
+    except Exception as e:
+        logger.warning(f"Incidents column migration note: {e}")
+
     # Seed default services and security sources
     db = SessionLocal()
     try:
         seed_initial_topology(db)
         shield.auth.seed_defaults(db)
+        from app.api.security import seed_demo_threats
+        seed_demo_threats(db)
+        from app.api.alerts import seed_suppressed_alerts
+        seed_suppressed_alerts(db)
     finally:
         db.close()
 

@@ -35,7 +35,13 @@ def normalize_generic(data: Dict[str, Any]) -> Dict[str, Any]:
         service=service,
         host=host,
         environment=environment,
-        labels=labels
+        labels=labels,
+        source=data.get("source"),
+        cluster=labels.get("cluster") or data.get("cluster"),
+        namespace=labels.get("namespace") or data.get("namespace"),
+        region=labels.get("region") or data.get("region"),
+        component=labels.get("component") or data.get("component"),
+        resource_id=labels.get("resource_id") or data.get("resource_id"),
     )
 
     return {
@@ -89,7 +95,13 @@ def normalize_prometheus(data: Dict[str, Any]) -> List[Dict[str, Any]]:
             service=service,
             host=host,
             environment=environment,
-            labels=labels
+            labels=labels,
+            source="prometheus",
+            cluster=labels.get("cluster") or annotations.get("cluster"),
+            namespace=labels.get("namespace") or annotations.get("namespace"),
+            region=labels.get("region") or annotations.get("region"),
+            component=labels.get("component") or annotations.get("component"),
+            resource_id=labels.get("pod") or labels.get("container") or annotations.get("resource_id"),
         )
 
         normalized_list.append({
@@ -162,7 +174,13 @@ def normalize_datadog(data: Dict[str, Any]) -> Dict[str, Any]:
         service=service,
         host=host,
         environment=env,
-        labels=parsed_tags
+        labels=parsed_tags,
+        source="datadog",
+        cluster=parsed_tags.get("cluster"),
+        namespace=parsed_tags.get("namespace"),
+        region=parsed_tags.get("region"),
+        component=parsed_tags.get("component"),
+        resource_id=parsed_tags.get("container_id") or parsed_tags.get("pod_name"),
     )
 
     return {

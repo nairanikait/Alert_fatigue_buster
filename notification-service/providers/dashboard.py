@@ -12,8 +12,10 @@ if backend_dir not in sys.path:
     sys.path.insert(0, backend_dir)
 
 try:
-    from app.core.database import SessionLocal
+    from app.core.database import SessionLocal, Base, engine
     from app.models.alert import Alert as DbAlert
+    if Base is not None and engine is not None:
+        Base.metadata.create_all(bind=engine)
 except Exception:
     SessionLocal = None
     DbAlert = None

@@ -1,4 +1,4 @@
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 from pydantic import BaseModel
 
 class IncidentResponse(BaseModel):
@@ -21,6 +21,7 @@ class IncidentResponse(BaseModel):
     resolved_at: Optional[str] = None
     duration_seconds: float
     evidence: List[Any]
+    ai_analysis: Optional[Dict[str, Any]] = None
     estimated_cost_loss: Optional[float] = 0.0
     cost_burn_rate_per_minute: Optional[float] = 0.0
 

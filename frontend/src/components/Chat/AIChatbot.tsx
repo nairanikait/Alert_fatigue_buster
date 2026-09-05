@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { sendChatMessage, fetchChatStatus } from "../../services/api";
 import { MetricsData, AlertItem, IncidentItem, TopologyData } from "../../types";
+import { AIFixSolutionModal } from "../Alerts/AIFixSolutionModal";
 
 interface AIChatbotProps {
   currentTab: string;
@@ -45,6 +46,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
   selectedAlert,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isFixModalOpen, setIsFixModalOpen] = useState(false);
   const [inputMessage, setInputMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [showKeyModal, setShowKeyModal] = useState(false);
@@ -349,10 +351,29 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
     <>
       {/* FLOATING TRIGGER BUTTON (Bottom Right of all pages) */}
       <div className="fixed bottom-6 right-6 z-50 flex items-center space-x-3">
+        {/* On Alerts Page: Render "AI Fix Solution" button right beside Chatbot */}
+        {currentTab === "alerts" && (
+          <button
+            id="btn-ai-fix-solution"
+            onClick={() => setIsFixModalOpen(true)}
+            className="group relative flex items-center space-x-2 px-4 py-3 rounded-full bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-xl shadow-emerald-500/25 hover:shadow-2xl hover:shadow-emerald-500/40 hover:scale-105 active:scale-95 transition-all duration-200 border border-emerald-400/40 cursor-pointer animate-fadeIn"
+            title="Generate AI solution to fix active alert error"
+          >
+            <div className="relative">
+              <Sparkles className="w-5 h-5 text-amber-300 animate-pulse" />
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-emerald-600" />
+            </div>
+            <span className="text-xs font-bold tracking-wide">AI Fix Solution</span>
+            <span className="px-1.5 py-0.5 rounded-full bg-white/20 text-[10px] font-mono uppercase tracking-wider backdrop-blur-xs font-bold">
+              Fix
+            </span>
+          </button>
+        )}
+
         {!isOpen && (
           <button
             onClick={() => setIsOpen(true)}
-            className="group relative flex items-center space-x-2.5 px-4 py-3 rounded-full bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 text-white shadow-xl shadow-indigo-500/25 hover:shadow-2xl hover:shadow-indigo-500/40 hover:scale-105 active:scale-95 transition-all duration-200 border border-indigo-400/30"
+            className="group relative flex items-center space-x-2.5 px-4 py-3 rounded-full bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 text-white shadow-xl shadow-indigo-500/25 hover:shadow-2xl hover:shadow-indigo-500/40 hover:scale-105 active:scale-95 transition-all duration-200 border border-indigo-400/30 cursor-pointer"
           >
             <div className="relative">
               <Bot className="w-5 h-5 text-white" />
@@ -365,6 +386,14 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({
           </button>
         )}
       </div>
+
+      {/* AI Error Fix Solution Modal */}
+      <AIFixSolutionModal
+        isOpen={isFixModalOpen}
+        onClose={() => setIsFixModalOpen(false)}
+        incidents={incidents}
+        alerts={alerts}
+      />
 
       {/* CHATBOT WINDOW DIALOG */}
       {isOpen && (

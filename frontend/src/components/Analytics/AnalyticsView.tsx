@@ -27,56 +27,192 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { MetricsData, AlertItem, IncidentItem } from "../../types";
+import { MetricsData, AlertItem, IncidentItem, NotificationItem } from "../../types";
 
 interface AnalyticsViewProps {
   metrics: MetricsData;
   alerts: AlertItem[];
   incidents: IncidentItem[];
+  notifications?: NotificationItem[];
 }
 
-export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ metrics, alerts, incidents }) => {
-  // Volume Trend Data
-  const volumeTrendData = [
-    { time: "10:00", rawAlerts: 42, suppressed: 41, notifications: 1 },
-    { time: "10:05", rawAlerts: 180, suppressed: 178, notifications: 2 },
-    { time: "10:10", rawAlerts: 520, suppressed: 517, notifications: 3 },
-    { time: "10:15", rawAlerts: 410, suppressed: 407, notifications: 3 },
-    { time: "10:20", rawAlerts: 230, suppressed: 228, notifications: 2 },
-    { time: "10:25", rawAlerts: 90, suppressed: 88, notifications: 2 },
-    {
-      time: "10:30",
-      rawAlerts: metrics.incoming_alerts > 0 ? metrics.incoming_alerts : 1507,
-      suppressed: metrics.suppressed_alerts > 0 ? metrics.suppressed_alerts : 1494,
-      notifications: metrics.notifications_sent > 0 ? metrics.notifications_sent : 13,
-    },
-  ];
+export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
+  metrics,
+  alerts = [],
+  incidents = [],
+  notifications = [],
+}) => {
+  // 1. Real-Time Volume Trend Data (Derived dynamically from simulation alerts & notifications)
+  const volumeTrendData = React.useMemo(() => {
+    if (alerts.length > 0) {
+      // Sort alerts chronologically
+      const sortedAlerts = [...alerts].sort((a, b) => {
+        const tA = new Date(a.timestamp || a.first_seen || a.created_at || 0).getTime();
+        const tB = new Date(b.timestamp || b.first_seen || b.created_at || 0).getTime();
+        return tA - tB;
+      });
 
-  // Top Noisy Services Bar Chart Data
-  const noisyServicesData = [
-    { service: "database", alerts: 620, incidents: 3 },
-    { service: "payment-service", alerts: 340, incidents: 2 },
-    { service: "order-service", alerts: 290, incidents: 2 },
-    { service: "authentication", alerts: 160, incidents: 1 },
-    { service: "api-gateway", alerts: 97, incidents: 1 },
-  ];
+      const firstTime = new Date(sortedAlerts[0].timestamp || sortedAlerts[0].first_seen || sortedAlerts[0].created_at || Date.now()).getTime();
+      const lastTime = new Date(sortedAlerts[sortedAlerts.length - 1].timestamp || sortedAlerts[sortedAlerts.length - 1].first_seen || sortedAlerts[sortedAlerts.length - 1].created_at || Date.now()).getTime();
 
-  // Severity Distribution Data
-  const severityData = [
-    { name: "Critical", value: metrics.severity_breakdown?.critical || 8, color: "#ef4444" },
-    { name: "High", value: metrics.severity_breakdown?.high || 18, color: "#f97316" },
-    { name: "Medium", value: metrics.severity_breakdown?.medium || 20, color: "#f59e0b" },
-    { name: "Low", value: metrics.severity_breakdown?.low || 9, color: "#10b981" },
-  ];
+      const timeSpanMs = Math.max(lastTime - firstTime, 60000); // at least 1 minute
+      const numSteps = 7;
+      const stepMs = timeSpanMs / (numSteps - 1);
 
-  const totalRaw = metrics.incoming_alerts > 0 ? metrics.incoming_alerts : 1507;
-  const totalSent = metrics.notifications_sent > 0 ? metrics.notifications_sent : 13;
-  const totalSuppressed = metrics.suppressed_alerts > 0 ? metrics.suppressed_alerts : 1494;
-  const reductionRate = metrics.reduction_percentage > 0 ? metrics.reduction_percentage : 99.1;
+      const points: { time: string; rawAlerts: number; suppressed: number; notifications: number }[] = [];
 
-  const dedupBatchingSaved = metrics.cost_savings?.dedup_batching_saved ?? Math.round(totalSuppressed * 3.8);
-  const routingSaved = metrics.cost_savings?.routing_triage_saved ?? 168.0;
-  const totalDollarsSaved = metrics.cost_savings?.total_dollars_saved ?? Math.round(totalSuppressed * 4.0);
+      for (let i = 0; i < numSteps; i++) {
+        const threshold = firstTime + i * stepMs;
+        const timeLabel = new Date(threshold).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: timeSpanMs < 300000 ? "2-digit" : undefined,
+        });
+
+        // Cumulative alerts up to threshold
+        const alertsUpToThreshold = sortedAlerts.filter((a) => {
+          const t = new Date(a.timestamp || a.first_seen || a.created_at || 0).getTime();
+          return t <= threshold;
+        });
+
+        const rawCount = alertsUpToThreshold.reduce((sum, a) => sum + (a.occurrence_count || 1), 0);
+
+        // Notifications up to threshold
+        const notifCount = (notifications || []).filter((n) => {
+          const t = new Date(n.sent_at || 0).getTime();
+          return t <= threshold;
+        }).length;
+
+        const finalNotifs = notifications && notifications.length > 0
+          ? notifCount
+          : Math.min(rawCount, Math.round((rawCount / Math.max(metrics.incoming_alerts, 1)) * metrics.notifications_sent));
+
+        const suppressed = Math.max(0, rawCount - finalNotifs);
+
+        points.push({
+          time: timeLabel,
+          rawAlerts: rawCount,
+          suppressed,
+          notifications: finalNotifs,
+        });
+      }
+
+      return points;
+    }
+
+    // If alerts list is empty but metrics has totals (e.g. from backend counters)
+    if (metrics.incoming_alerts > 0) {
+      const now = Date.now();
+      const points = [];
+      const numSteps = 5;
+      for (let i = 0; i < numSteps; i++) {
+        const t = new Date(now - (numSteps - 1 - i) * 60000);
+        const factor = (i + 1) / numSteps;
+        const raw = Math.round(metrics.incoming_alerts * factor);
+        const notif = Math.round(metrics.notifications_sent * factor);
+        points.push({
+          time: t.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          rawAlerts: raw,
+          suppressed: Math.max(0, raw - notif),
+          notifications: notif,
+        });
+      }
+      return points;
+    }
+
+    // Clean baseline when empty
+    const now = new Date();
+    return [
+      { time: new Date(now.getTime() - 120000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), rawAlerts: 0, suppressed: 0, notifications: 0 },
+      { time: new Date(now.getTime() - 60000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), rawAlerts: 0, suppressed: 0, notifications: 0 },
+      { time: now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), rawAlerts: 0, suppressed: 0, notifications: 0 },
+    ];
+  }, [alerts, notifications, metrics]);
+
+  // 2. Real-Time Top Noisy Services Bar Chart Data (Derived from live alerts & incidents)
+  const noisyServicesData = React.useMemo(() => {
+    const serviceMap = new Map<string, { service: string; alerts: number; incidents: number }>();
+
+    // Aggregate from real alerts
+    (alerts || []).forEach((a) => {
+      const svc = a.service || "unknown";
+      const count = a.occurrence_count || 1;
+      const existing = serviceMap.get(svc) || { service: svc, alerts: 0, incidents: 0 };
+      existing.alerts += count;
+      serviceMap.set(svc, existing);
+    });
+
+    // Aggregate incidents per service
+    (incidents || []).forEach((inc) => {
+      const svcs = inc.affected_services?.length ? inc.affected_services : [inc.root_cause_service];
+      svcs.forEach((svc) => {
+        if (svc) {
+          const existing = serviceMap.get(svc) || { service: svc, alerts: 0, incidents: 0 };
+          existing.incidents += 1;
+          serviceMap.set(svc, existing);
+        }
+      });
+    });
+
+    // Merge with top_affected_services from metrics if available
+    if (metrics.top_affected_services && metrics.top_affected_services.length > 0) {
+      metrics.top_affected_services.forEach((top) => {
+        const existing = serviceMap.get(top.service);
+        if (!existing) {
+          serviceMap.set(top.service, { service: top.service, alerts: top.count, incidents: 0 });
+        } else {
+          existing.alerts = Math.max(existing.alerts, top.count);
+        }
+      });
+    }
+
+    return Array.from(serviceMap.values())
+      .sort((a, b) => b.alerts - a.alerts)
+      .slice(0, 6);
+  }, [alerts, incidents, metrics.top_affected_services]);
+
+  // 3. Real-Time Severity Distribution Data (Derived from live alerts & backend breakdown)
+  const severityData = React.useMemo(() => {
+    let crit = 0;
+    let high = 0;
+    let med = 0;
+    let low = 0;
+
+    if (alerts && alerts.length > 0) {
+      alerts.forEach((a) => {
+        const sev = String(a.severity || "").toLowerCase();
+        const count = a.occurrence_count || 1;
+        if (sev === "critical") crit += count;
+        else if (sev === "high") high += count;
+        else if (sev === "medium") med += count;
+        else if (sev === "low") low += count;
+      });
+    } else if (metrics.severity_breakdown) {
+      crit = metrics.severity_breakdown.critical || 0;
+      high = metrics.severity_breakdown.high || 0;
+      med = metrics.severity_breakdown.medium || 0;
+      low = metrics.severity_breakdown.low || 0;
+    }
+
+    return [
+      { name: "Critical", value: crit, color: "#ef4444" },
+      { name: "High", value: high, color: "#f97316" },
+      { name: "Medium", value: med, color: "#f59e0b" },
+      { name: "Low", value: low, color: "#10b981" },
+    ];
+  }, [alerts, metrics.severity_breakdown]);
+
+  const totalSeverity = severityData.reduce((acc, curr) => acc + curr.value, 0);
+
+  // Real-time Summary Metrics (No fixed constants)
+  const totalRaw = metrics.incoming_alerts || alerts.reduce((s, a) => s + (a.occurrence_count || 1), 0);
+  const totalSent = metrics.notifications_sent || (notifications ? notifications.length : 0);
+  const totalSuppressed = Math.max(0, totalRaw - totalSent);
+  const reductionRate = totalRaw > 0 ? Number(((totalSuppressed / totalRaw) * 100).toFixed(1)) : 0.0;
+
+  const dedupBatchingSaved = metrics.cost_savings?.dedup_batching_saved ?? Math.round(totalSuppressed * 4.0);
+  const routingSaved = metrics.cost_savings?.routing_triage_saved ?? Math.round((incidents.length || 0) * 15.0);
+  const totalDollarsSaved = metrics.cost_savings?.total_dollars_saved ?? Math.round(dedupBatchingSaved + routingSaved);
   const totalHoursSaved = metrics.time_saved?.total_hours_saved ?? Number(((totalSuppressed * 3.0) / 60.0).toFixed(1));
 
   return (
@@ -224,24 +360,33 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ metrics, alerts, i
           </div>
 
           <div className="h-48 w-full flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={severityData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={75}
-                  paddingAngle={3}
-                  dataKey="value"
-                >
-                  {severityData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            {totalSeverity === 0 ? (
+              <div className="flex flex-col items-center justify-center text-slate-400 text-xs text-center py-6">
+                <div className="w-12 h-12 rounded-full border-2 border-dashed border-slate-200 mb-2 flex items-center justify-center text-slate-300 font-mono text-xs">
+                  0
+                </div>
+                <span>No alerts ingested yet</span>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={severityData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={75}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {severityData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </div>
 
           <div className="space-y-1.5 pt-2 border-t border-slate-100">
@@ -268,22 +413,29 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ metrics, alerts, i
         </div>
 
         <div className="h-56 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={noisyServicesData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="service" stroke="#94a3b8" fontSize={11} tickLine={false} />
-              <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#ffffff",
-                  borderColor: "#e2e8f0",
-                  borderRadius: "8px",
-                  fontSize: "12px",
-                }}
-              />
-              <Bar dataKey="alerts" fill="#6366f1" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          {noisyServicesData.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-slate-400 text-xs text-center">
+              <span className="font-medium text-slate-500">No noisy services registered</span>
+              <span className="text-[11px] text-slate-400 mt-1">Telemetry will appear here in real time as alerts arrive</span>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={noisyServicesData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="service" stroke="#94a3b8" fontSize={11} tickLine={false} />
+                <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#ffffff",
+                    borderColor: "#e2e8f0",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                  }}
+                />
+                <Bar dataKey="alerts" fill="#6366f1" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
     </div>

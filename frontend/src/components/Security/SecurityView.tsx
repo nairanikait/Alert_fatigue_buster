@@ -18,6 +18,20 @@ export const SecurityView: React.FC = () => {
   const [quarantinedAlerts, setQuarantinedAlerts] = useState<any[]>([]);
   const [sources, setSources] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [filterCriticalOnly, setFilterCriticalOnly] = useState<boolean>(false);
+  const [highlightQuarantine, setHighlightQuarantine] = useState<boolean>(false);
+
+  const handleReviewCritical = () => {
+    setFilterCriticalOnly(true);
+    setHighlightQuarantine(true);
+    setTimeout(() => {
+      const el = document.getElementById("quarantine-review-table");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 50);
+    setTimeout(() => setHighlightQuarantine(false), 2500);
+  };
 
   const loadAllData = useCallback(async () => {
     try {
@@ -48,7 +62,12 @@ export const SecurityView: React.FC = () => {
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
       {/* 1. System Status & Security Metrics */}
-      <SecurityOverviewCards data={overview} loading={loading} onRefresh={loadAllData} />
+      <SecurityOverviewCards
+        data={overview}
+        loading={loading}
+        onRefresh={loadAllData}
+        onReviewCritical={handleReviewCritical}
+      />
 
       {/* 2. Interactive 1-Click Security Test Suite */}
       <SecurityTestControls onScenarioExecuted={loadAllData} />
@@ -58,6 +77,9 @@ export const SecurityView: React.FC = () => {
         alerts={quarantinedAlerts}
         loading={loading}
         onActionComplete={loadAllData}
+        filterCritical={filterCriticalOnly}
+        onFilterCriticalChange={setFilterCriticalOnly}
+        highlighted={highlightQuarantine}
       />
 
       {/* 4. Live Events Audit Stream + Registered Webhook Sources */}

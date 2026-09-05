@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from "react";
 import { AlertItem } from "../../types";
-import { Search, Filter, Eye, RefreshCw, AlertTriangle, Radio } from "lucide-react";
+import { Search, Filter, Eye, RefreshCw, AlertTriangle, Radio, Sparkles } from "lucide-react";
 import { formatTime } from "../../utils/formatDate";
+import { AutoSolvePipelineModal } from "./AutoSolvePipelineModal";
 
 interface AlertsTableProps {
   alerts: AlertItem[];
@@ -16,6 +17,30 @@ export const AlertsTable: React.FC<AlertsTableProps> = ({ alerts, onSelectAlert,
   const [serviceFilter, setServiceFilter] = useState("ALL");
   const [sourceFilter, setSourceFilter] = useState("ALL");
   const [flakyOnly, setFlakyOnly] = useState(false);
+  const [isAutoSolveModalOpen, setIsAutoSolveModalOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Standard telemetry refresh
+  const handleRefresh = async () => {
+    try {
+      setIsRefreshing(true);
+      await onRefresh();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Count unresolved suppressed alerts
+  const suppressedCount = useMemo(() => {
+    return alerts.filter(
+      (a) =>
+        a.status !== "RESOLVED" &&
+        (a.notification_status === "SUPPRESSED" ||
+          a.status === "SUPPRESSED" ||
+          Boolean(a.suppression_category) ||
+          a.status === "BATCHED")
+    ).length;
+  }, [alerts]);
 
   // Available unique services and sources for filters
   const availableServices = useMemo(() => {
@@ -76,6 +101,10 @@ export const AlertsTable: React.FC<AlertsTableProps> = ({ alerts, onSelectAlert,
     }
   };
 
+  const handleAutoSolveClick = () => {
+    setIsAutoSolveModalOpen(true);
+  };
+
   return (
     <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm space-y-4">
       {/* Header */}
@@ -83,17 +112,40 @@ export const AlertsTable: React.FC<AlertsTableProps> = ({ alerts, onSelectAlert,
         <div>
           <h2 className="text-base font-bold text-slate-900 tracking-tight">Alerts</h2>
           <p className="text-xs text-slate-500 mt-0.5">
-
+            Real-time telemetry stream, deduplication pipeline, and automated query resolution
           </p>
         </div>
 
-        <button
-          onClick={onRefresh}
-          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-medium transition shadow-xs self-start sm:self-auto"
-        >
-          <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
-          <span>Refresh</span>
-        </button>
+        <div className="flex items-center space-x-2 self-start sm:self-auto">
+          {/* Button 1: AutoSolve Suppressed */}
+          <button
+            id="btn-autosolve-suppressed"
+            onClick={handleAutoSolveClick}
+            disabled={isRefreshing}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-semibold shadow-xs transition active:scale-95 group disabled:opacity-60 cursor-pointer"
+            title="Automatically solve and reconcile all suppressed alert queries"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-indigo-200 group-hover:rotate-12 transition-transform" />
+            <span>AutoSolve Suppressed</span>
+            {suppressedCount > 0 && (
+              <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-white/20 text-white font-mono font-bold">
+                {suppressedCount}
+              </span>
+            )}
+          </button>
+
+          {/* Button 2: Refresh Telemetry */}
+          <button
+            id="btn-refresh-telemetry"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-medium transition shadow-xs disabled:opacity-60 cursor-pointer"
+            title="Refresh current telemetry view"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-slate-400 ${isRefreshing ? "animate-spin text-indigo-600" : ""}`} />
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter Controls Bar */}
@@ -247,12 +299,15 @@ export const AlertsTable: React.FC<AlertsTableProps> = ({ alerts, onSelectAlert,
                   </td>
                   <td className="px-3 py-2.5">
                     <span
-                      className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded border ${alert.notification_status === "SENT"
+                      className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded border ${
+                        alert.notification_status === "SENT"
                           ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          : alert.notification_status === "BATCHED"
-                            ? "bg-indigo-50 text-indigo-700 border-indigo-200"
-                            : "bg-slate-100 text-slate-600 border-slate-200"
-                        }`}
+                          : alert.notification_status === "SUPPRESSED"
+                            ? "bg-amber-50 text-amber-700 border-amber-200"
+                            : alert.notification_status === "BATCHED"
+                              ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                              : "bg-slate-100 text-slate-600 border-slate-200"
+                      }`}
                     >
                       {alert.notification_status}
                     </span>
@@ -280,6 +335,13 @@ export const AlertsTable: React.FC<AlertsTableProps> = ({ alerts, onSelectAlert,
         <span>Showing {filteredAlerts.length} of {alerts.length} total events</span>
         <span>Tip: Click any row to view explainability details</span>
       </div>
+
+      {/* AutoSolve Pipeline Visualizer Modal */}
+      <AutoSolvePipelineModal
+        isOpen={isAutoSolveModalOpen}
+        onClose={() => setIsAutoSolveModalOpen(false)}
+        onCompleted={onRefresh}
+      />
     </div>
   );
 };

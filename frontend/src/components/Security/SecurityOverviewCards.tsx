@@ -1,14 +1,20 @@
 import React from "react";
-import { ShieldCheck, ShieldAlert, ShieldX, Activity, AlertTriangle, RefreshCw, Lock, Zap } from "lucide-react";
+import { ShieldCheck, ShieldAlert, ShieldX, Activity, AlertTriangle, RefreshCw, Lock, Zap, ChevronDown } from "lucide-react";
 import { SecurityOverviewData } from "../../services/api";
 
 interface SecurityOverviewCardsProps {
   data: SecurityOverviewData | null;
   loading: boolean;
   onRefresh: () => void;
+  onReviewCritical?: () => void;
 }
 
-export const SecurityOverviewCards: React.FC<SecurityOverviewCardsProps> = ({ data, loading, onRefresh }) => {
+export const SecurityOverviewCards: React.FC<SecurityOverviewCardsProps> = ({
+  data,
+  loading,
+  onRefresh,
+  onReviewCritical,
+}) => {
   if (!data) return null;
 
   const status = data.system_status;
@@ -52,7 +58,7 @@ export const SecurityOverviewCards: React.FC<SecurityOverviewCardsProps> = ({ da
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <span className={`w-2.5 h-2.5 rounded-full animate-pulse ${badge.dot}`} />
+              <span className={`w-2.5 h-2.5 rounded-full ${badge.dot}`} />
               <span className="text-xs font-bold uppercase tracking-wider">{badge.label}</span>
               <span className="text-slate-300">•</span>
               <span className="text-xs font-medium text-slate-600">Alert Integrity Shield Active</span>
@@ -82,14 +88,30 @@ export const SecurityOverviewCards: React.FC<SecurityOverviewCardsProps> = ({ da
 
       {/* Critical Alert Quarantine Emergency Warning */}
       {metrics.pending_critical_quarantines > 0 && (
-        <div className="p-3.5 rounded-lg bg-rose-50 border border-rose-300 flex items-center justify-between text-rose-800 text-xs shadow-xs animate-pulse">
+        <div
+          onClick={onReviewCritical}
+          className="p-3.5 rounded-lg bg-rose-50 border border-rose-200 flex flex-wrap items-center justify-between text-rose-900 text-xs shadow-xs transition-all hover:bg-rose-100/70 hover:border-rose-300 cursor-pointer group"
+        >
           <div className="flex items-center space-x-2.5 font-medium">
             <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0" />
             <span>
-              <strong>CRITICAL ALERT SAFETY:</strong> {metrics.pending_critical_quarantines} critical severity alerts have suspicious attributes. Preserved in quarantine — SRE review required.
+              <strong className="font-semibold text-rose-950">CRITICAL ALERT SAFETY:</strong>{" "}
+              {metrics.pending_critical_quarantines} critical severity alert{metrics.pending_critical_quarantines > 1 ? "s" : ""} flagged with suspicious attributes. Preserved safely in quarantine.
             </span>
           </div>
-          <span className="px-2.5 py-1 rounded bg-rose-600 text-white font-bold text-[11px]">Action Required</span>
+          <div className="flex items-center space-x-2 mt-2 sm:mt-0">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onReviewCritical?.();
+              }}
+              className="px-3 py-1.5 rounded-md bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs flex items-center space-x-1.5 shadow-2xs transition-colors group-hover:shadow-xs"
+            >
+              <span>Review &amp; Triage ({metrics.pending_critical_quarantines})</span>
+              <ChevronDown className="w-3.5 h-3.5 group-hover:translate-y-0.5 transition-transform" />
+            </button>
+          </div>
         </div>
       )}
 

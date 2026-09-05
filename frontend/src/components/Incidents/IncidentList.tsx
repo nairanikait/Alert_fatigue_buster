@@ -18,6 +18,7 @@ import {
   Zap,
   ShieldCheck,
 } from "lucide-react";
+import { AIIncidentCopilotPanel } from "./AIIncidentCopilotPanel";
 
 interface IncidentListProps {
   incidents: IncidentItem[];
@@ -378,6 +379,11 @@ export const IncidentList: React.FC<IncidentListProps> = ({ incidents, onSelectI
                       {inc.confidence_score}% Confidence
                     </span>
                   </div>
+                </div>
+
+                {/* AI SRE Copilot Solution Panel */}
+                <div onClick={(e) => e.stopPropagation()} className="pt-1">
+                  <AIIncidentCopilotPanel incident={inc} defaultExpanded={false} />
                 </div>
 
                 {/* Affected Services & Timestamps */}

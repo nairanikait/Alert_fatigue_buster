@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Play, CheckCircle, ShieldAlert, ShieldX, RefreshCw, Zap, Lock, AlertTriangle } from "lucide-react";
-import { runSecurityTestScenario } from "../../services/api";
+import { runSecurityTestScenario, seedSecurityThreats } from "../../services/api";
 
 interface SecurityTestControlsProps {
   onScenarioExecuted: () => void;
@@ -9,6 +9,19 @@ interface SecurityTestControlsProps {
 export const SecurityTestControls: React.FC<SecurityTestControlsProps> = ({ onScenarioExecuted }) => {
   const [runningScenario, setRunningScenario] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<any | null>(null);
+  const [isSeeding, setIsSeeding] = useState<boolean>(false);
+
+  const handleSeedThreats = async () => {
+    setIsSeeding(true);
+    try {
+      await seedSecurityThreats(true);
+      onScenarioExecuted();
+    } catch (e: any) {
+      alert(`Failed to seed threats: ${e.message}`);
+    } finally {
+      setIsSeeding(false);
+    }
+  };
 
   const scenarios = [
     {
@@ -91,9 +104,20 @@ export const SecurityTestControls: React.FC<SecurityTestControlsProps> = ({ onSc
             Alert Integrity Shield — Live Security Test Suite
           </h3>
         </div>
-        <span className="text-[11px] text-slate-500 font-medium hidden sm:inline">
-          1-Click Automated Scenario Demonstrator
-        </span>
+        <div className="flex items-center space-x-2.5">
+          <button
+            onClick={handleSeedThreats}
+            disabled={isSeeding}
+            className="px-2.5 py-1 rounded bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 text-xs font-semibold flex items-center space-x-1.5 transition-colors shadow-2xs"
+            title="Populate or refresh realistic fake threats & attacks"
+          >
+            <ShieldAlert className={`w-3.5 h-3.5 ${isSeeding ? "animate-spin text-indigo-600" : "text-indigo-600"}`} />
+            <span>{isSeeding ? "Populating..." : "Populate Fake Threats"}</span>
+          </button>
+          <span className="text-[11px] text-slate-500 font-medium hidden sm:inline">
+            1-Click Automated Scenario Demonstrator
+          </span>
+        </div>
       </div>
 
       <div className="p-3.5">

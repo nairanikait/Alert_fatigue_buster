@@ -23,8 +23,10 @@ import {
   FileText,
   ChevronRight,
 } from "lucide-react";
-import { AlertItem } from "../../types";
+import { AlertItem, IncidentItem } from "../../types";
 import { formatDateTime } from "../../utils/formatDate";
+import { fetchIncidentDetail } from "../../services/api";
+import { AIIncidentCopilotPanel } from "../Incidents/AIIncidentCopilotPanel";
 
 interface AlertDetailModalProps {
   alert: AlertItem | null;
@@ -38,6 +40,17 @@ export const AlertDetailModal: React.FC<AlertDetailModalProps> = ({ alert, onClo
     "severity" | "dedup" | "root_cause" | "routing" | null
   >(null);
   const [copiedHash, setCopiedHash] = useState(false);
+  const [linkedIncident, setLinkedIncident] = useState<IncidentItem | null>(null);
+
+  useEffect(() => {
+    if (alert?.correlation_group_id) {
+      fetchIncidentDetail(alert.correlation_group_id)
+        .then((res) => setLinkedIncident(res.incident))
+        .catch(() => setLinkedIncident(null));
+    } else {
+      setLinkedIncident(null);
+    }
+  }, [alert?.correlation_group_id]);
 
   // Close popup or modal on Escape key
   useEffect(() => {
@@ -237,6 +250,13 @@ export const AlertDetailModal: React.FC<AlertDetailModalProps> = ({ alert, onClo
             </div>
           </div>
         </div>
+
+        {/* Linked Incident AI SRE Copilot Panel */}
+        {linkedIncident && (
+          <div className="pt-1">
+            <AIIncidentCopilotPanel incident={linkedIncident} defaultExpanded={false} />
+          </div>
+        )}
 
         {/* Detailed Metadata Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">

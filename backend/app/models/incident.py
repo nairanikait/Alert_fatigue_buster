@@ -30,6 +30,7 @@ class Incident(Base):
     duration_seconds = Column(Float, default=0.0)
     
     evidence = Column(JSON, default=list)
+    ai_analysis = Column(JSON, nullable=True)
 
     __table_args__ = (
         Index("idx_incident_status_created", "status", "created_at"),
@@ -107,6 +108,7 @@ class Incident(Base):
             "resolved_at": _to_utc_iso(self.resolved_at),
             "duration_seconds": self.duration_seconds,
             "evidence": self.evidence or [],
+            "ai_analysis": self.ai_analysis,
             "estimated_cost_loss": self.estimated_cost_loss,
             "cost_burn_rate_per_minute": self.cost_burn_rate
         }
